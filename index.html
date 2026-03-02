@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream XI | Pro Squad Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <style>
+        :root { --t-gold: #efbf04; }
+        body { 
+            background: #02040a; color: white; font-family: 'Inter', sans-serif; 
+            background-image: radial-gradient(circle at 50% 0%, #111827 0%, #02040a 100%);
+            min-height: 100vh;
+        }
+        
+        /* FOOTBALL PITCH STYLING */
+        .pitch-canvas { 
+            width: 100%; max-width: 1000px; min-height: 980px;
+            background-color: #2e7d32; 
+            background-image: linear-gradient(90deg, transparent 50%, rgba(255,255,255,.03) 50%), radial-gradient(#388e3c 1px, transparent 1px);
+            background-size: 50px 50px, 20px 20px;
+            border: 5px solid #fff; border-radius: 20px; 
+            position: relative; margin: 20px auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7), inset 0 0 100px rgba(0,0,0,0.3);
+            padding: 60px 0 120px 0; overflow: hidden;
+        }
+
+        .pitch-canvas::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-image: linear-gradient(to right, transparent 49.5%, #fff 49.5%, #fff 50.5%, transparent 50.5%), radial-gradient(circle at 50% 50%, transparent 10%, #fff 10%, #fff 11%, transparent 11%);
+            background-size: 100% 100%, 200px 200px; background-position: center; background-repeat: no-repeat; opacity: 0.3; pointer-events: none;
+        }
+
+        .penalty-box { position: absolute; width: 400px; height: 180px; border: 4px solid #fff; left: 50%; transform: translateX(-50%); opacity: 0.3; pointer-events: none; }
+        .penalty-box.top { top: 0; border-top: none; border-radius: 0 0 120px 120px; }
+        .penalty-box.bottom { bottom: 0; border-bottom: none; border-radius: 120px 120px 0 0; }
+        
+        /* CARD & SLOT STYLING */
+        .topps-card { 
+            width: 145px; height: 210px; position: relative; background: #000; 
+            border-radius: 12px; border: 2.5px solid var(--t-gold); 
+            overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.9); 
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); animation: cardIn 0.4s ease-out;
+        }
+        @keyframes cardIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        
+        .card-img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; transform: scale(1.2); mask-image: linear-gradient(to bottom, black 85%, transparent 100%); }
+        .ovr-badge { position: absolute; top: 8px; left: 8px; background: var(--t-gold); color: #000; font-family: 'Oswald'; font-size: 20px; width: 34px; text-align: center; font-weight: 900; border-radius: 5px; z-index: 10; }
+        .name-plate { position: absolute; bottom: 35px; width: 100%; text-align: center; font-family: 'Bebas Neue'; font-size: 18px; background: rgba(0,0,0,0.8); padding: 8px 0; z-index: 5; }
+        .stats-grid { position: absolute; bottom: 0; width: 100%; height: 35px; background: #111; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1.5px solid var(--t-gold); align-items: center; }
+        .stat-item { text-align: center; font-size: 10px; font-weight: 900; color: var(--t-gold); }
+        
+        .slot { width: 155px; height: 220px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; position: relative; }
+        .pos-label { font-family: 'Oswald'; font-size: 24px; color: rgba(255,255,255,0.1); font-weight: 900; position: absolute; pointer-events: none; }
+        .slot.active { background: rgba(239, 191, 4, 0.2); border-color: var(--t-gold); }
+        
+        .sidebar { background: rgba(0,0,0,0.92); border-right: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(25px); position: sticky; top: 0; height: 100vh; }
+        .about-section { background: rgba(239, 191, 4, 0.05); border: 1px solid rgba(239, 191, 4, 0.2); border-radius: 16px; padding: 15px; margin-top: auto; }
+        
+        #search-bar { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px 18px; border-radius: 14px; width: 100%; outline: none; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--t-gold); border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col lg:flex-row">
+
+    <aside class="w-full lg:w-80 sidebar p-6 flex flex-col shrink-0 z-50">
+        <div class="mb-6">
+            <h1 class="text-5xl font-black italic tracking-tighter">DREAM <span class="text-yellow-500">XI</span></h1>
+            <p class="text-[11px] tracking-widest text-yellow-500 font-bold uppercase mt-2">Ultimate Football Builder</p>
+        </div>
+
+        <div class="mb-5">
+            <input type="text" id="search-bar" placeholder="Search stars..." oninput="filterList()">
+        </div>
+
+        <div class="flex gap-2 mb-6">
+            <button onclick="setTab('p')" id="btnP" class="flex-1 py-3 rounded-xl bg-yellow-500 text-black font-black text-xs">PLAYERS</button>
+            <button onclick="setTab('c')" id="btnC" class="flex-1 py-3 rounded-xl bg-zinc-800 text-white font-black text-xs">COACHES</button>
+        </div>
+
+        <div id="data-list" class="flex-1 overflow-y-auto pr-2 space-y-3 custom-scroll mb-6"></div>
+
+        <div class="about-section">
+            <p class="text-[10px] text-yellow-500 font-black uppercase tracking-[0.2em] mb-1">ABOUT DREAM XI</p>
+            <p class="text-xs text-gray-300 leading-relaxed font-medium">
+                Made by <span class="text-white font-bold">Rohan Dutta</span>. 
+                Drag legends onto the pitch to create your tactical masterpiece.
+            </p>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-8 lg:p-12 flex flex-col items-center overflow-y-auto">
+        <div class="w-full max-w-[1000px] flex justify-between items-end mb-8 z-10">
+            <div class="flex items-center gap-6">
+                <div class="bg-zinc-900 px-8 py-5 rounded-3xl border border-white/10 text-center shadow-2xl">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Squad Rating</p>
+                    <span id="ovr-display" class="text-5xl font-black text-yellow-500">00</span>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] font-bold text-gray-500 uppercase">Tactics</label>
+                    <div class="flex gap-2">
+                        <select id="form-sel" onchange="renderPitch()" class="bg-zinc-900 text-white px-4 py-3 rounded-2xl font-bold border border-white/10 outline-none">
+                            <option value="433">4-3-3</option>
+                            <option value="442">4-4-2</option>
+                            <option value="352">3-5-2</option>
+                        </select>
+                        <button onclick="clearPitch()" class="bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white px-4 py-3 rounded-2xl text-[10px] font-black transition uppercase">Clear</button>
+                    </div>
+                </div>
+            </div>
+            <div id="mgr-slot" class="w-36 h-48 rounded-2xl border-2 border-dashed border-yellow-500/30 bg-zinc-900/50 flex flex-col items-center justify-center relative overflow-hidden group">
+                <span class="text-[10px] font-bold text-gray-600 group-hover:text-yellow-500">MANAGER</span>
+            </div>
+        </div>
+
+        <div class="pitch-canvas">
+            <div class="penalty-box top"></div>
+            <div class="penalty-box bottom"></div>
+            <div id="pitch-grid" class="absolute inset-0 flex flex-col justify-around"></div>
+        </div>
+    </main>
+
+<script>
+const players = [
+    // --- ATTACKERS ---
+    { n: 'Lionel Messi', w: 'Lionel Messi', p: 'RW', s: [85, 94, 92] },
+    { n: 'Cristiano Ronaldo', w: 'Cristiano Ronaldo', p: 'ST', s: [88, 94, 80] },
+    { n: 'Kylian Mbappé', w: 'Kylian Mbappé', p: 'ST', s: [97, 91, 85] },
+    { n: 'Erling Haaland', w: 'Erling Haaland', p: 'ST', s: [89, 96, 70] },
+    { n: 'Pelé', w: 'Pelé', p: 'ST', s: [95, 99, 92] },
+    { n: 'Diego Maradona', w: 'Diego Maradona', p: 'CAM', s: [92, 94, 98] },
+    { n: 'Neymar Jr', w: 'Neymar', p: 'LW', s: [91, 85, 93] },
+    { n: 'Vinícius Júnior', w: 'Vinícius Júnior', p: 'LW', s: [96, 84, 80] },
+    { n: 'Mohamed Salah', w: 'Mohamed Salah', p: 'RW', s: [92, 90, 82] },
+    { n: 'Lamine Yamal', w: 'Lamine Yamal', p: 'RW', s: [92, 82, 85] },
+    { n: 'Harry Kane', w: 'Harry Kane', p: 'ST', s: [72, 95, 86] },
+    { n: 'Sunil Chhetri', w: 'Sunil Chhetri', p: 'ST', s: [84, 88, 78] },
+    { n: 'Ronaldinho', w: 'Ronaldinho', p: 'LW', s: [91, 90, 94] },
+    { n: 'Robert Lewandowski', w: 'Robert Lewandowski', p: 'ST', s: [75, 91, 80] },
+    { n: 'Bukayo Saka', w: 'Bukayo Saka', p: 'RW', s: [90, 84, 82] },
+    { n: 'Zlatan Ibrahimović', w: 'Zlatan Ibrahimović', p: 'ST', s: [70, 90, 85] },
+    { n: 'Luis Suárez', w: 'Luis Suárez', p: 'ST', s: [78, 92, 82] },
+    { n: 'Thierry Henry', w: 'Thierry Henry', p: 'LW', s: [94, 92, 88] },
+    { n: 'Ronaldo Nazário', w: 'Ronaldo (Brazilian footballer)', p: 'ST', s: [97, 95, 90] },
+    { n: 'Rafael Leão', w: 'Rafael Leão', p: 'LW', s: [93, 82, 80] },
+    { n: 'Victor Osimhen', w: 'Victor Osimhen', p: 'ST', s: [90, 88, 75] },
+    { n: 'Heung-min Son', w: 'Son Heung-min', p: 'LW', s: [88, 89, 82] },
+    { n: 'Lautaro Martínez', w: 'Lautaro Martínez', p: 'ST', s: [83, 89, 78] },
+    { n: 'Julian Alvarez', w: 'Julián Álvarez (footballer)', p: 'ST', s: [85, 84, 82] },
+    { n: 'Gerd Müller', w: 'Gerd Müller', p: 'ST', s: [78, 94, 70] },
+    { n: 'Eusébio', w: 'Eusébio', p: 'ST', s: [92, 93, 85] },
+    { n: 'George Best', w: 'George Best', p: 'RW', s: [91, 88, 94] },
+    { n: 'Ferenc Puskás', w: 'Ferenc Puskás', p: 'ST', s: [82, 96, 91] },
+    { n: 'Nico Williams', w: 'Nico Williams', p: 'LW', s: [94, 82, 80] },
+    { n: 'Phil Foden', w: 'Phil Foden', p: 'RW', s: [86, 88, 91] },
+    { n: 'Cole Palmer', w: 'Cole Palmer', p: 'RW', s: [84, 87, 88] },
+    { n: 'Viktor Gyökeres', w: 'Viktor Gyökeres', p: 'ST', s: [88, 90, 78] },
+
+    // --- MIDFIELDERS ---
+    { n: 'Kevin De Bruyne', w: 'Kevin De Bruyne', p: 'CAM', s: [74, 88, 95] },
+    { n: 'Jude Bellingham', w: 'Jude Bellingham', p: 'CAM', s: [82, 85, 88] },
+    { n: 'Rodri', w: 'Rodri (footballer, born 1996)', p: 'CM', s: [70, 82, 92] },
+    { n: 'Luka Modrić', w: 'Luka Modrić', p: 'CM', s: [72, 76, 93] },
+    { n: 'Zinedine Zidane', w: 'Zinedine Zidane', p: 'CAM', s: [82, 88, 96] },
+    { n: 'Andrés Iniesta', w: 'Andrés Iniesta', p: 'CM', s: [75, 82, 96] },
+    { n: 'Xavi', w: 'Xavi (footballer, born 1980)', p: 'CM', s: [70, 78, 97] },
+    { n: 'Pedri', w: 'Pedri', p: 'CM', s: [82, 78, 90] },
+    { n: 'Federico Valverde', w: 'Federico Valverde', p: 'CM', s: [88, 82, 84] },
+    { n: 'Declan Rice', w: 'Declan Rice', p: 'CDM', s: [76, 65, 85] },
+    { n: 'Bernardo Silva', w: 'Bernardo Silva', p: 'CM', s: [80, 78, 92] },
+    { n: 'Bruno Fernandes', w: 'Bruno Fernandes', p: 'CAM', s: [72, 86, 90] },
+    { n: 'Johan Cruyff', w: 'Johan Cruyff', p: 'CAM', s: [91, 92, 94] },
+
+    // --- DEFENDERS ---
+    { n: 'Virgil van Dijk', w: 'Virgil van Dijk', p: 'CB', s: [78, 60, 90] },
+    { n: 'Sergio Ramos', w: 'Sergio Ramos', p: 'CB', s: [75, 70, 88] },
+    { n: 'Paolo Maldini', w: 'Paolo Maldini', p: 'CB', s: [85, 60, 95] },
+    { n: 'Franz Beckenbauer', w: 'Franz Beckenbauer', p: 'CB', s: [83, 75, 94] },
+    { n: 'Roberto Carlos', w: 'Roberto Carlos (footballer)', p: 'LB', s: [94, 88, 82] },
+    { n: 'William Saliba', w: 'William Saliba', p: 'CB', s: [82, 45, 87] },
+    { n: 'Ruben Dias', w: 'Rúben Dias', p: 'CB', s: [65, 50, 89] },
+    { n: 'Achraf Hakimi', w: 'Achraf Hakimi', p: 'RB', s: [92, 78, 80] },
+    { n: 'Theo Hernandez', w: 'Theo Hernández', p: 'LB', s: [93, 75, 78] },
+    { n: 'Josko Gvardiol', w: 'Joško Gvardiol', p: 'CB', s: [80, 65, 85] },
+    { n: 'Sandesh Jhingan', w: 'Sandesh Jhingan', p: 'CB', s: [62, 40, 80] },
+    { n: 'Cafu', w: 'Cafu', p: 'RB', s: [91, 82, 89] },
+
+    // --- GOALKEEPERS ---
+    { n: 'Lev Yashin', w: 'Lev Yashin', p: 'GK', s: [95, 96, 90] },
+    { n: 'Alisson Becker', w: 'Alisson Becker', p: 'GK', s: [85, 90, 88] },
+    { n: 'Thibaut Courtois', w: 'Thibaut Courtois', p: 'GK', s: [82, 89, 85] },
+    { n: 'Manuel Neuer', w: 'Manuel Neuer', p: 'GK', s: [87, 88, 91] },
+    { n: 'Gianluigi Buffon', w: 'Gianluigi Buffon', p: 'GK', s: [82, 92, 90] },
+    { n: 'Iker Casillas', w: 'Iker Casillas', p: 'GK', s: [90, 91, 88] },
+    { n: 'Gurpreet Singh Sandhu', w: 'Gurpreet Singh Sandhu', p: 'GK', s: [68, 75, 72] }
+];
+
+const coaches = [
+    { n: 'Pep Guardiola', w: 'Pep Guardiola' },
+    { n: 'Mikel Arteta', w: 'Mikel Arteta' },
+    { n: 'Arne Slot', w: 'Arne Slot' },
+    { n: 'Carlo Ancelotti', w: 'Carlo Ancelotti' },
+    { n: 'Hansi Flick', w: 'Hansi Flick' },
+    { n: 'Xabi Alonso', w: 'Xabi Alonso' },
+    { n: 'Sir Alex Ferguson', w: 'Alex Ferguson' },
+    { n: 'José Mourinho', w: 'José Mourinho' },
+    { n: 'Jürgen Klopp', w: 'Jürgen Klopp' },
+    { n: 'Lionel Scaloni', w: 'Lionel Scaloni' },
+    { n: 'Thomas Tuchel', w: 'Thomas Tuchel' },
+    { n: 'Zinedine Zidane', w: 'Zinedine Zidane' },
+    { n: 'Arsène Wenger', w: 'Arsène Wenger' },
+    { n: 'Unai Emery', w: 'Unai Emery' },
+    { n: 'Diego Simeone', w: 'Diego Simeone' }
+];
+
+let activeTab = 'p', dragSource = null, currentSquad = new Map();
+
+async function fetchWikiImg(title) {
+    try {
+        const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+        const d = await res.json();
+        return d.thumbnail ? d.thumbnail.source : `https://ui-avatars.com/api/?name=${title}&background=111&color=efbf04`;
+    } catch { return `https://ui-avatars.com/api/?name=${title}&background=111&color=efbf04`; }
+}
+
+function filterList() {
+    const query = document.getElementById('search-bar').value.toLowerCase();
+    const source = activeTab === 'p' ? players : coaches;
+    const filtered = source.filter(item => item.n.toLowerCase().includes(query));
+    renderList(filtered);
+}
+
+async function renderList(items) {
+    const list = document.getElementById('data-list');
+    list.innerHTML = '';
+    
+    // We use a fragment for better performance while rendering
+    const fragment = document.createDocumentFragment();
+    
+    for (const item of items) {
+        const div = document.createElement('div');
+        div.className = "flex items-center gap-4 p-3 bg-white/5 rounded-2xl border border-white/5 cursor-grab hover:bg-white/10";
+        div.draggable = true;
+        
+        // Use a placeholder first to avoid blocking the UI
+        const placeholder = `https://ui-avatars.com/api/?name=${item.n}&background=111&color=efbf04`;
+        
+        div.innerHTML = `
+            <img src="${placeholder}" data-src="${item.w}" class="wiki-loader w-12 h-12 object-cover rounded-lg">
+            <div>
+                <p class="font-bold text-[10px] text-yellow-500 uppercase">${item.p || 'COACH'}</p>
+                <p class="font-bold text-xs uppercase">${item.n}</p>
+            </div>`;
+
+        div.ondragstart = async (e) => {
+            const imgUrl = await fetchWikiImg(item.w);
+            dragSource = { ...item, img: imgUrl };
+        };
+        
+        fragment.appendChild(div);
+    }
+    list.appendChild(fragment);
+
+    // Lazy load real images
+    document.querySelectorAll('.wiki-loader').forEach(async img => {
+        const realUrl = await fetchWikiImg(img.dataset.src);
+        img.src = realUrl;
+    });
+}
+
+function setTab(t) {
+    activeTab = t;
+    document.getElementById('search-bar').value = ''; // Clear search when switching tabs
+    document.getElementById('btnP').className = t==='p' ? "flex-1 py-3 rounded-xl bg-yellow-500 text-black font-black text-xs" : "flex-1 py-3 rounded-xl bg-zinc-800 text-white font-black text-xs";
+    document.getElementById('btnC').className = t==='c' ? "flex-1 py-3 rounded-xl bg-yellow-500 text-black font-black text-xs" : "flex-1 py-3 rounded-xl bg-zinc-800 text-white font-black text-xs";
+    filterList();
+}
+
+const labels = {
+    '433': [['LW','ST','RW'],['CM','CAM','CM'],['LB','CB','CB','RB'],['GK']],
+    '442': [['ST','ST'],['LM','CM','CM','RM'],['LB','CB','CB','RB'],['GK']],
+    '352': [['ST','ST'],['LM','CM','CAM','CM','RM'],['CB','CB','CB'],['GK']]
+};
+
+function renderPitch() {
+    const grid = document.getElementById('pitch-grid');
+    grid.innerHTML = '';
+    const form = document.getElementById('form-sel').value;
+    const structure = labels[form];
+
+    structure.forEach((rowPos) => {
+        const row = document.createElement('div');
+        row.className = "flex justify-center gap-14 w-full";
+        rowPos.forEach(pos => {
+            const slot = document.createElement('div');
+            slot.className = "slot";
+            slot.innerHTML = `<span class="pos-label">${pos}</span>`;
+            slot.ondragover = e => { e.preventDefault(); slot.classList.add('active'); };
+            slot.ondragleave = () => slot.classList.remove('active');
+            slot.ondrop = () => {
+                slot.classList.remove('active');
+                if(!dragSource || !dragSource.s) return;
+                const ovr = Math.round(dragSource.s.reduce((a,b)=>a+b,0)/3);
+                slot.innerHTML = `<div class="topps-card"><div class="ovr-badge">${ovr}</div><img src="${dragSource.img}" class="card-img"><div class="name-plate">${dragSource.n.split(' ').pop()}</div><div class="stats-grid"><div class="stat-item">${dragSource.s[0]}</div><div class="stat-item">${dragSource.s[1]}</div><div class="stat-item">${dragSource.s[2]}</div></div></div>`;
+                currentSquad.set(slot, ovr);
+                updateTotalOvr();
+            };
+            row.appendChild(slot);
+        });
+        grid.appendChild(row);
+    });
+}
+
+function clearPitch() {
+    currentSquad.clear();
+    renderPitch();
+    updateTotalOvr();
+    document.getElementById('mgr-slot').innerHTML = `<span class="text-[10px] font-bold text-gray-600 group-hover:text-yellow-500">MANAGER</span>`;
+}
+
+const mgrSlot = document.getElementById('mgr-slot');
+mgrSlot.ondragover = e => e.preventDefault();
+mgrSlot.ondrop = () => {
+    if(dragSource && !dragSource.s) {
+        mgrSlot.innerHTML = `<img src="${dragSource.img}" class="w-full h-full object-cover"><div class="absolute bottom-0 w-full bg-black/80 text-[10px] py-2 text-center font-bold">${dragSource.n}</div>`;
+    }
+};
+
+function updateTotalOvr() {
+    const scores = Array.from(currentSquad.values());
+    const avg = scores.length > 0 ? Math.round(scores.reduce((a,b)=>a+b,0)/11) : 0;
+    document.getElementById('ovr-display').innerText = avg.toString().padStart(2, '0');
+}
+
+// Initial Load
+setTab('p');
+renderPitch();
+</script>
+</body>
+</html>
